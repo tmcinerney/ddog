@@ -150,17 +150,35 @@ The pre-commit hooks will:
 
 #### GitHub Actions
 
-CI/CD is configured via GitHub Actions. The workflow runs on push and pull requests to `main`. It includes:
+CI/CD is configured via GitHub Actions:
 
-- **Formatting check**: Verifies code is properly formatted
-- **Clippy**: Runs Rust linter with strict warnings
-- **Build**: Ensures the project compiles
-- **Tests**: Runs unit tests (integration tests require credentials)
+**CI Workflow** (`.github/workflows/ci.yml`):
+- **Check**: Formatting, clippy linting, and unit tests (runs first)
+- **Build**: Release build (only after checks pass)
 
-To enable integration tests in CI, add the following secrets to your GitHub repository:
-- `DD_API_KEY`: Your Datadog API key
-- `DD_APP_KEY`: Your Datadog application key
-- `DD_SITE`: (Optional) Your Datadog site (defaults to `datadoghq.com`)
+**Release Workflow** (`.github/workflows/release.yml`):
+- Uses [release-please](https://github.com/googleapis/release-please) for automated releases
+- Parses conventional commits to determine version bumps
+- Creates release PRs with changelogs
+- Builds and uploads binaries for Linux and macOS when releases are created
+
+#### Conventional Commits
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automatic versioning:
+
+| Commit Type | Example | Version Bump |
+|-------------|---------|--------------|
+| `fix:` | `fix: handle empty query` | Patch (0.0.X) |
+| `feat:` | `feat: add trace search` | Minor (0.X.0) |
+| `feat!:` or `BREAKING CHANGE:` | `feat!: change output format` | Major (X.0.0) |
+| `docs:`, `chore:`, `refactor:` | `docs: update README` | No release |
+
+**Examples:**
+```bash
+git commit -m "fix: correct time parsing for negative offsets"
+git commit -m "feat: add support for trace ID lookup"
+git commit -m "feat!: change default output to JSON Lines"
+```
 
 ### Running Tests
 

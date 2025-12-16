@@ -53,4 +53,3 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Run unit tests
         run: cargo test --lib --verbose
-
