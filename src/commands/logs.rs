@@ -4,6 +4,7 @@
 
 use futures_util::StreamExt;
 
+use crate::logging::VerboseLogger;
 use crate::output::NdjsonWriter;
 use dd_search::client::LogsClient;
 use dd_search::error::AppError;
@@ -19,6 +20,7 @@ pub async fn run(
     to: String,
     indexes: Vec<String>,
     limit: u64,
+    logger: VerboseLogger,
 ) -> Result<(), AppError> {
     let mut writer = NdjsonWriter::new();
     let mut stream = std::pin::pin!(client.search(&query, &from, &to, indexes));
@@ -27,8 +29,12 @@ pub async fn run(
     while let Some(result) = stream.next().await {
         let log = result.map_err(|e| {
             let msg = format!("{}", e);
-            if msg.contains("401") || msg.contains("403") || msg.contains("Forbidden") {
-                AppError::Auth(format!("Authentication failed: {}", msg))
+            logger.log_error(&msg, "logs API request");
+            
+            if msg.contains("401") {
+                AppError::Auth(format!("Authentication failed (401): Invalid API or App key. {}", msg))
+            } else if msg.contains("403") || msg.contains("Forbidden") {
+                AppError::Auth(format!("Access denied (403): Your API key may not have permission to access logs. {}", msg))
             } else if msg.contains("400") || msg.contains("Bad Request") {
                 AppError::InvalidQuery(msg)
             } else {
@@ -40,10 +46,12 @@ pub async fn run(
         count += 1;
 
         if limit > 0 && count >= limit {
+            logger.log(&format!("Reached limit of {} results", limit));
             break;
         }
     }
 
+    logger.log(&format!("Returned {} log(s)", count));
     Ok(())
 }
 

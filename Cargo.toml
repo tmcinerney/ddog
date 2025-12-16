@@ -28,6 +28,9 @@ serde_json = "1.0"
 # Error handling
 thiserror = "1.0"
 
+# URL encoding for Datadog UI links
+urlencoding = "2.1"
+
 [dev-dependencies]
 # Time handling for integration tests
 chrono = "0.4"

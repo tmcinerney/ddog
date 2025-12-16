@@ -10,6 +10,10 @@ use clap::{Parser, Subcommand};
 #[command(about = "Query Datadog logs and APM spans from the command line")]
 #[command(version)]
 pub struct Cli {
+    /// Enable verbose/debug output
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
