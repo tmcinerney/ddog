@@ -9,7 +9,7 @@
 //!
 //! Note: These tests make actual API calls to Datadog and may consume API quota.
 
-use dd_search::client::{LogsClient, SpansClient};
+use dd_search::client::{LogsClient, MetricsClient, SpansClient};
 use dd_search::config;
 use dd_search::time;
 use futures_util::StreamExt;
@@ -485,4 +485,200 @@ async fn test_time_range_edge_cases() {
             from, to, result_count, error_count
         );
     }
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_metrics_query_with_relative_time() {
+    if !has_credentials() {
+        eprintln!("Skipping test: DD_API_KEY and DD_APP_KEY not set");
+        return;
+    }
+
+    let config = config::load_config().expect("Failed to load config");
+    let client = MetricsClient::new(config);
+
+    // Query a common system metric
+    let query = "avg:system.cpu.user{*}";
+    let from = "now-1h";
+    let to = "now";
+
+    // Convert to Unix seconds for the API
+    let from_secs = time::parse_to_unix_seconds(from).expect("Failed to parse from time");
+    let to_secs = time::parse_to_unix_seconds(to).expect("Failed to parse to time");
+
+    let mut stream = std::pin::pin!(client.query(query, from_secs, to_secs));
+    let mut count = 0;
+    let max_results = 10;
+
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(point) => {
+                // Verify the point has required fields
+                assert!(!point.metric.is_empty());
+                assert!(point.timestamp > 0);
+                count += 1;
+                if count >= max_results {
+                    break;
+                }
+            }
+            Err(e) => {
+                let msg = format!("{}", e);
+                if msg.contains("401") {
+                    panic!("Authentication failed: {}", msg);
+                }
+                if msg.contains("403") {
+                    eprintln!(
+                        "Warning: 403 Forbidden - may need 'timeseries_query' permission: {}",
+                        msg
+                    );
+                }
+                break;
+            }
+        }
+    }
+
+    println!(
+        "Successfully queried {} metric point(s) with relative time range",
+        count
+    );
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_metrics_query_with_unix_timestamp() {
+    if !has_credentials() {
+        eprintln!("Skipping test: DD_API_KEY and DD_APP_KEY not set");
+        return;
+    }
+
+    let config = config::load_config().expect("Failed to load config");
+    let client = MetricsClient::new(config);
+
+    // Test with Unix timestamp (last hour)
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let one_hour_ago = now - 3600;
+
+    let query = "avg:system.cpu.idle{*}";
+
+    let mut stream = std::pin::pin!(client.query(query, one_hour_ago, now));
+    let mut count = 0;
+    let max_results = 10;
+
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(point) => {
+                assert!(!point.metric.is_empty());
+                assert!(point.timestamp >= one_hour_ago);
+                assert!(point.timestamp <= now + 60); // Allow small clock skew
+                count += 1;
+                if count >= max_results {
+                    break;
+                }
+            }
+            Err(e) => {
+                let msg = format!("{}", e);
+                if msg.contains("401") {
+                    panic!("Authentication failed: {}", msg);
+                }
+                eprintln!("API error (may be expected): {}", msg);
+                break;
+            }
+        }
+    }
+
+    println!(
+        "Successfully queried {} metric point(s) with Unix timestamp format",
+        count
+    );
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_list_metrics() {
+    if !has_credentials() {
+        eprintln!("Skipping test: DD_API_KEY and DD_APP_KEY not set");
+        return;
+    }
+
+    let config = config::load_config().expect("Failed to load config");
+    let client = MetricsClient::new(config);
+
+    // List metrics from the last hour
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let one_hour_ago = (SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        - 3600) as i64;
+
+    let mut stream = std::pin::pin!(client.list_active(one_hour_ago));
+    let mut count = 0;
+    let max_results = 50; // List more metrics to verify the endpoint works
+
+    while let Some(result) = stream.next().await {
+        match result {
+            Ok(metric_name) => {
+                // Verify we got a non-empty metric name
+                assert!(!metric_name.is_empty());
+                count += 1;
+                if count >= max_results {
+                    break;
+                }
+            }
+            Err(e) => {
+                let msg = format!("{}", e);
+                if msg.contains("401") {
+                    panic!("Authentication failed: {}", msg);
+                }
+                if msg.contains("403") {
+                    eprintln!(
+                        "Warning: 403 Forbidden - may need 'metrics_read' permission: {}",
+                        msg
+                    );
+                }
+                break;
+            }
+        }
+    }
+
+    println!("Successfully listed {} active metric(s)", count);
+    assert!(count > 0, "Expected at least some active metrics");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_parse_to_unix_seconds_integration() {
+    // Test the time parsing function that metrics commands rely on
+    let test_cases = vec![
+        ("now-1h", 3600),
+        ("now-30m", 1800),
+        ("now-1d", 86400),
+        ("now-1w", 604800),
+    ];
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+
+    for (input, expected_offset) in test_cases {
+        let result = time::parse_to_unix_seconds(input).expect("Failed to parse time");
+        let actual_offset = now - result;
+
+        // Allow 5 second tolerance for test execution time
+        assert!(
+            (actual_offset - expected_offset).abs() < 5,
+            "Time offset mismatch for {}: expected ~{}, got {}",
+            input,
+            expected_offset,
+            actual_offset
+        );
+    }
+
+    println!("Time parsing function works correctly for metrics");
 }

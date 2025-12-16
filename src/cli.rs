@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 /// Main CLI application structure.
 #[derive(Parser)]
 #[command(name = "dd-search")]
-#[command(about = "Query Datadog logs and APM spans from the command line")]
+#[command(about = "Query Datadog logs, APM spans, and metrics from the command line")]
 #[command(version)]
 pub struct Cli {
     /// Enable verbose/debug output
@@ -59,5 +59,34 @@ pub enum Commands {
         /// Maximum number of results to return (use 0 for unlimited)
         #[arg(short, long, default_value = "100")]
         limit: u64,
+    },
+
+    /// Query metrics timeseries data
+    Metrics {
+        /// Datadog metric query (e.g., "avg:system.cpu.user{*}")
+        query: String,
+
+        /// Start time - relative (now-1h) or Unix timestamp (1705315200)
+        #[arg(short, long, default_value = "now-1h")]
+        from: String,
+
+        /// End time - relative (now) or Unix timestamp (1705315200)
+        #[arg(short, long, default_value = "now")]
+        to: String,
+
+        /// Maximum number of data points to return (use 0 for unlimited)
+        #[arg(short, long, default_value = "1000")]
+        limit: u64,
+    },
+
+    /// List active metrics within a time window
+    ListMetrics {
+        /// Start time - relative (now-1h) or Unix timestamp (1705315200)
+        #[arg(short, long, default_value = "now-1h")]
+        from: String,
+
+        /// End time - relative (now) or Unix timestamp (1705315200)
+        #[arg(short, long)]
+        to: Option<String>,
     },
 }

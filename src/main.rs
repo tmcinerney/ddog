@@ -1,12 +1,14 @@
 //! # dd-search
 //!
-//! A command-line tool for querying Datadog logs and APM spans.
+//! A command-line tool for querying Datadog logs, APM spans, and metrics.
 //!
 //! ## Usage
 //!
 //! ```bash
 //! dd-search logs "service:api AND status:error" --from now-1h
 //! dd-search spans "service:web env:prod" --limit 50
+//! dd-search metrics "avg:system.cpu.user{*}" --from now-1h
+//! dd-search list-metrics --from now-1h
 //! ```
 //!
 //! ## Environment Variables
@@ -77,6 +79,29 @@ async fn run() -> Result<(), AppError> {
 
             let client = client::SpansClient::new(config);
             commands::spans::run(client, query, from, to, limit, logger).await
+        }
+        Commands::Metrics {
+            query,
+            from,
+            to,
+            limit,
+        } => {
+            logger.log_request("metrics", &query, &from, &to);
+            logger.log_api_endpoint("/api/v1/query", "GET");
+
+            let client = client::MetricsClient::new(config);
+            commands::metrics::run(client, query, from, to, limit, logger).await
+        }
+        Commands::ListMetrics { from, to } => {
+            let to_display = to.as_deref().unwrap_or("now");
+            logger.log(&format!(
+                "Listing active metrics from {} to {}",
+                from, to_display
+            ));
+            logger.log_api_endpoint("/api/v1/metrics", "GET");
+
+            let client = client::MetricsClient::new(config);
+            commands::list_metrics::run(client, from, to, logger).await
         }
     }
 }

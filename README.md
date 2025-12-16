@@ -1,6 +1,6 @@
 # dd-search
 
-A command-line tool for querying Datadog logs and APM spans. Outputs NDJSON for easy piping to `jq` or other tools.
+A command-line tool for querying Datadog logs, APM spans, and metrics. Outputs NDJSON for easy piping to `jq` or other tools.
 
 ## Installation
 
@@ -23,6 +23,19 @@ Set the following environment variables:
 export DD_API_KEY="your-api-key"
 export DD_APP_KEY="your-app-key"
 ```
+
+### Required Permissions
+
+Your application key must have the following scopes/permissions:
+
+| Command | Required Scope | Description |
+|---------|---------------|-------------|
+| `logs` | `logs_read_data` | Read log data |
+| `spans` | `apm_read` | Read APM span data |
+| `metrics` | `timeseries_query` | Query metrics timeseries data |
+| `list-metrics` | `metrics_read` | List available metrics |
+
+**Note:** If you get a 403 Forbidden error, check that your application key has the required permissions in your Datadog account settings.
 
 ## Usage
 
@@ -93,7 +106,73 @@ dd-search spans "service:db" --from "2024-01-15T10:00:00Z" --to "2024-01-15T11:0
 dd-search spans "service:api" --from "1705315200000" --to "1705318800000"
 ```
 
+### Metrics
+
+```bash
+dd-search metrics <QUERY> [OPTIONS]
+```
+
+**Options:**
+- `-f, --from <TIME>` - Start time (default: `now-1h`)
+  - **Relative**: `now`, `now-15m`, `now-1h`, `now-1d`, etc.
+  - **Unix timestamp**: Seconds or milliseconds since epoch (e.g., `1705315200` or `1705315200000`)
+  - **Note**: ISO8601 format not yet supported for metrics
+- `-t, --to <TIME>` - End time (default: `now`)
+  - Same formats as `--from`
+- `-l, --limit <N>` - Max data points (default: 1000, use 0 for unlimited)
+
+**Examples:**
+
+```bash
+# Query average CPU usage over last hour
+dd-search metrics "avg:system.cpu.user{*}" --from now-1h --to now
+
+# Query with host filter
+dd-search metrics "max:system.mem.used{host:prod-*}" --from now-15m --to now
+
+# Query multiple metrics
+dd-search metrics "avg:system.cpu.user{*},avg:system.cpu.system{*}" --from now-6h --to now
+
+# Pipe to jq for processing
+dd-search metrics "avg:redis.net.connections{*}" --from now-1d --to now | jq '.value'
+
+# Filter by specific timestamp
+dd-search metrics "avg:system.load.1{*}" | jq 'select(.timestamp > 1705315200)'
+
+# Get average of all values
+dd-search metrics "avg:system.cpu.idle{*}" --from now-1h | jq -s 'add / length | .value'
+```
+
+### List Metrics
+
+```bash
+dd-search list-metrics [OPTIONS]
+```
+
+**Options:**
+- `-f, --from <TIME>` - Start time (default: `now-1h`)
+  - Metrics active after this time will be listed
+- `-t, --to <TIME>` - End time (optional, defaults to now)
+
+**Examples:**
+
+```bash
+# List all metrics active in the last hour
+dd-search list-metrics --from now-1h
+
+# Find specific metrics with grep
+dd-search list-metrics --from now-1h | grep "system.cpu"
+
+# Count total active metrics
+dd-search list-metrics --from now-1h | wc -l
+
+# List and filter with jq
+dd-search list-metrics --from now-1d | jq -r '.metric' | sort | uniq
+```
+
 ## Query Syntax
+
+### Logs and Spans
 
 Queries use [Datadog's native query syntax](https://docs.datadoghq.com/logs/explorer/search_syntax/):
 
@@ -103,6 +182,18 @@ Queries use [Datadog's native query syntax](https://docs.datadoghq.com/logs/expl
 - **Ranges**: `@http.status_code:[200 TO 299]`
 - **Boolean**: `service:api AND status:error`
 - **Negation**: `-env:development`
+
+### Metrics
+
+Metrics queries use [Datadog's metric query syntax](https://docs.datadoghq.com/dashboards/querying/):
+
+- **Basic**: `avg:system.cpu.user{*}` - Average CPU across all hosts
+- **Aggregation**: `sum`, `avg`, `min`, `max`, `count`
+- **Tag filtering**: `avg:system.cpu.user{env:prod}`
+- **Multiple tags**: `avg:system.cpu.user{env:prod,service:web}`
+- **Wildcards**: `avg:system.cpu.user{host:web-*}`
+- **Arithmetic**: `avg:system.cpu.user{*} + avg:system.cpu.system{*}`
+- **Functions**: `avg:system.cpu.user{*}.rollup(avg, 60)` - 60s rollup
 
 ## Output
 
@@ -195,11 +286,18 @@ cargo test --test integration_tests -- --ignored
 - `src/` - Main source code
   - `cli.rs` - Command-line interface definitions
   - `client/` - Datadog API client wrappers
-  - `commands/` - Command implementations (logs, spans)
+    - `logs.rs` - Logs API client
+    - `spans.rs` - Spans API client
+    - `metrics.rs` - Metrics API client
+  - `commands/` - Command implementations
+    - `logs.rs` - Logs search command
+    - `spans.rs` - Spans search command
+    - `metrics.rs` - Metrics query command
+    - `list_metrics.rs` - List metrics command
   - `config.rs` - Configuration loading
   - `error.rs` - Error types and exit codes
   - `output.rs` - NDJSON output writer
-  - `time.rs` - Time range validation utilities
+  - `time.rs` - Time parsing and validation utilities
 - `tests/` - Integration tests
 
 ## License

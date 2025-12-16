@@ -21,6 +21,11 @@
 //!    - `1705315200000` - Milliseconds since January 1, 1970 UTC
 //!
 //! All formats are passed directly to Datadog's API, which handles the parsing.
+//!
+//! For the Metrics API (V1), which requires Unix timestamps in seconds, use the
+//! `parse_to_unix_seconds` function to convert time strings to i64.
+
+use crate::error::AppError;
 
 /// Validates that a time string is in a format Datadog accepts.
 ///
@@ -133,6 +138,111 @@ pub fn is_valid_time_range(from: &str, to: &str) -> bool {
     // If both are absolute timestamps, we could validate ordering,
     // but for now we'll let Datadog handle it
     true
+}
+
+/// Parses a time string into Unix seconds.
+///
+/// This function is used for APIs that require Unix timestamps (like Metrics V1 API).
+/// The Logs and Spans V2 APIs accept time strings directly and handle parsing themselves.
+///
+/// Supports three formats:
+/// 1. **Relative times**: "now", "now-15m", "now-1h", etc.
+/// 2. **Unix timestamps**: "1705315200000" (milliseconds) or "1705315200" (seconds)
+/// 3. **ISO8601 timestamps**: Currently not supported, returns error suggesting alternatives
+///
+/// # Arguments
+///
+/// * `time_str` - Time string to parse
+///
+/// # Returns
+///
+/// Unix timestamp in seconds, or an error if the format is unsupported
+///
+/// # Examples
+///
+/// ```
+/// use dd_search::time::parse_to_unix_seconds;
+///
+/// // Relative time
+/// let timestamp = parse_to_unix_seconds("now").unwrap();
+/// assert!(timestamp > 0);
+///
+/// // Unix seconds
+/// let timestamp = parse_to_unix_seconds("1705315200").unwrap();
+/// assert_eq!(timestamp, 1705315200);
+///
+/// // Unix milliseconds (auto-converted to seconds)
+/// let timestamp = parse_to_unix_seconds("1705315200000").unwrap();
+/// assert_eq!(timestamp, 1705315200);
+/// ```
+pub fn parse_to_unix_seconds(time_str: &str) -> Result<i64, AppError> {
+    // Handle "now"
+    if time_str == "now" {
+        return Ok(std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| AppError::Config(format!("Failed to get current time: {}", e)))?
+            .as_secs() as i64);
+    }
+
+    // Handle relative times like "now-1h"
+    if let Some(rest) = time_str.strip_prefix("now-") {
+        let now_secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| AppError::Config(format!("Failed to get current time: {}", e)))?
+            .as_secs() as i64;
+
+        // Parse the number and unit
+        let mut num_str = String::new();
+        let mut unit = String::new();
+
+        for c in rest.chars() {
+            if c.is_ascii_digit() {
+                num_str.push(c);
+            } else {
+                unit.push(c);
+            }
+        }
+
+        let num: i64 = num_str
+            .parse()
+            .map_err(|_| AppError::Config(format!("Invalid time format: {}", time_str)))?;
+
+        let offset_secs = match unit.as_str() {
+            "s" => num,
+            "m" => num * 60,
+            "h" => num * 60 * 60,
+            "d" => num * 60 * 60 * 24,
+            "w" => num * 60 * 60 * 24 * 7,
+            "mo" => num * 60 * 60 * 24 * 30, // Approximate
+            "y" => num * 60 * 60 * 24 * 365, // Approximate
+            _ => {
+                return Err(AppError::Config(format!(
+                    "Invalid time unit in: {}",
+                    time_str
+                )));
+            }
+        };
+
+        return Ok(now_secs - offset_secs);
+    }
+
+    // Try parsing as Unix timestamp (could be seconds or milliseconds)
+    if let Ok(timestamp) = time_str.parse::<i64>() {
+        // If the timestamp looks like milliseconds (> year 2000 in seconds), convert to seconds
+        if timestamp > 946684800 && timestamp.to_string().len() >= 13 {
+            // Looks like milliseconds
+            return Ok(timestamp / 1000);
+        } else {
+            // Assume seconds
+            return Ok(timestamp);
+        }
+    }
+
+    // ISO8601 not yet supported - would need chrono or similar
+    Err(AppError::Config(format!(
+        "Time format '{}' not supported. Please use relative times (now, now-1h) or Unix timestamps",
+        time_str
+    )))
 }
 
 #[cfg(test)]
@@ -261,5 +371,60 @@ mod tests {
         assert!(!is_valid_time_range("now", ""));
         assert!(!is_valid_time_range("invalid", "now"));
         assert!(!is_valid_time_range("now", "invalid"));
+    }
+
+    #[test]
+    fn test_parse_to_unix_seconds_now() {
+        let result = parse_to_unix_seconds("now");
+        assert!(result.is_ok());
+        let timestamp = result.unwrap();
+        // Should be close to current time (within a few seconds)
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        assert!((timestamp - now).abs() < 5);
+    }
+
+    #[test]
+    fn test_parse_to_unix_seconds_relative_times() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        // Test various units
+        let one_hour_ago = parse_to_unix_seconds("now-1h").unwrap();
+        assert!((now - one_hour_ago - 3600).abs() < 5);
+
+        let fifteen_min_ago = parse_to_unix_seconds("now-15m").unwrap();
+        assert!((now - fifteen_min_ago - 900).abs() < 5);
+
+        let one_day_ago = parse_to_unix_seconds("now-1d").unwrap();
+        assert!((now - one_day_ago - 86400).abs() < 5);
+
+        let one_week_ago = parse_to_unix_seconds("now-1w").unwrap();
+        assert!((now - one_week_ago - 604800).abs() < 5);
+    }
+
+    #[test]
+    fn test_parse_to_unix_seconds_unix_seconds() {
+        let timestamp = parse_to_unix_seconds("1705315200").unwrap();
+        assert_eq!(timestamp, 1705315200);
+    }
+
+    #[test]
+    fn test_parse_to_unix_seconds_unix_milliseconds() {
+        let timestamp = parse_to_unix_seconds("1705315200000").unwrap();
+        assert_eq!(timestamp, 1705315200); // Should convert to seconds
+    }
+
+    #[test]
+    fn test_parse_to_unix_seconds_invalid() {
+        let result = parse_to_unix_seconds("invalid");
+        assert!(result.is_err());
+
+        let result = parse_to_unix_seconds("2024-01-15T10:00:00Z");
+        assert!(result.is_err()); // ISO8601 not yet supported
     }
 }
