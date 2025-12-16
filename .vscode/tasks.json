@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["test"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "format",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["fmt"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "format-check",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["fmt", "--", "--check"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "clippy",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["clippy", "--", "-D", "warnings"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "build-debug",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["build"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "build-release",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["build", "--release"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "install",
+      "type": "shell",
+      "command": "cargo",
+      "args": ["install", "--path", "."],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "ci-flow",
+      "type": "shell",
+      "command": "cargo fmt -- --check && cargo clippy -- -D warnings && cargo test && cargo build --release",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$rustc"]
+    }
+  ]
+}
