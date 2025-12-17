@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/tmcinerney/ddog/compare/v0.1.0...v1.0.0) (2025-12-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* Command structure has changed to domain-first pattern. All commands now require both a domain and action verb.
+
+### Features
+
+* restructure CLI from dd-search to ddog with domain-first commands ([5abf176](https://github.com/tmcinerney/ddog/commit/5abf1766831972bc22a99f21b4f6d7744a3f7427))
+
+
+### Bug Fixes
+
+* add missing logs module files ignored by global gitignore ([7245b1a](https://github.com/tmcinerney/ddog/commit/7245b1a14495687d0da46a8ac462a6f02a05aaf8))
+
 ## 0.1.0 (2025-12-16)
 
 
@@ -15,4 +31,3 @@
 ### Bug Fixes
 
 * **lint:** resolve CI formatting and clippy errors ([fcfeda7](https://github.com/tmcinerney/ddog/commit/fcfeda7da79cf8e47820da29b0e0f3064b41c290))
-
