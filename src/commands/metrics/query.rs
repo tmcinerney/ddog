@@ -1,14 +1,15 @@
-//! Metrics subcommand implementation.
+//! Metrics query command implementation.
 //!
-//! Handles the `dd-search metrics` command, streaming metric timeseries points to stdout.
+//! Handles the `ddog metrics query` command, streaming metric timeseries points to stdout.
 
 use futures_util::StreamExt;
 
+use crate::cli::TimeRange;
 use crate::logging::VerboseLogger;
 use crate::output::NdjsonWriter;
-use dd_search::client::MetricsClient;
-use dd_search::error::AppError;
-use dd_search::time::parse_to_unix_seconds;
+use ddog::client::MetricsClient;
+use ddog::error::AppError;
+use ddog::time::parse_to_unix_seconds;
 
 /// Executes the metrics query command.
 ///
@@ -17,14 +18,13 @@ use dd_search::time::parse_to_unix_seconds;
 pub async fn run(
     client: MetricsClient,
     query: String,
-    from: String,
-    to: String,
+    time_range: TimeRange,
     limit: u64,
     logger: VerboseLogger,
 ) -> Result<(), AppError> {
     // Convert time strings to Unix seconds
-    let from_secs = parse_to_unix_seconds(&from)?;
-    let to_secs = parse_to_unix_seconds(&to)?;
+    let from_secs = parse_to_unix_seconds(&time_range.from)?;
+    let to_secs = parse_to_unix_seconds(&time_range.to)?;
 
     logger.log(&format!(
         "Querying metrics from {} to {} (Unix seconds)",

@@ -1,14 +1,14 @@
-//! # dd-search
+//! # ddog
 //!
 //! A command-line tool for querying Datadog logs, APM spans, and metrics.
 //!
 //! ## Usage
 //!
 //! ```bash
-//! dd-search logs "service:api AND status:error" --from now-1h
-//! dd-search spans "service:web env:prod" --limit 50
-//! dd-search metrics "avg:system.cpu.user{*}" --from now-1h
-//! dd-search list-metrics --from now-1h
+//! ddog logs search "service:api AND status:error" --from now-1h
+//! ddog spans search "service:web env:prod" --limit 50
+//! ddog metrics query "avg:system.cpu.user{*}" --from now-1h
+//! ddog metrics list --from now-1h
 //! ```
 //!
 //! ## Environment Variables
@@ -25,11 +25,11 @@ mod logging;
 mod output;
 
 // Import from library crate
-use dd_search::client;
-use dd_search::config;
-use dd_search::error::AppError;
+use ddog::client;
+use ddog::config;
+use ddog::error::AppError;
 
-use cli::{Cli, Commands};
+use cli::{Cli, Domain, LogsAction, MetricsAction, SpansAction};
 use logging::VerboseLogger;
 
 #[tokio::main]
@@ -52,56 +52,59 @@ async fn run() -> Result<(), AppError> {
 
     logger.log_config(&site, has_api_key, has_app_key);
 
-    match cli.command {
-        Commands::Logs {
-            query,
-            from,
-            to,
-            limit,
-            indexes,
-        } => {
-            logger.log_request("logs", &query, &from, &to);
-            logger.log_api_endpoint("/api/v2/logs/events", "POST");
-            logger.log_datadog_url("logs", &query, &from, &to, &site);
+    match cli.domain {
+        Domain::Logs { action } => match action {
+            LogsAction::Search {
+                query,
+                time_range,
+                pagination,
+                indexes,
+            } => {
+                logger.log_request("logs", &query, &time_range.from, &time_range.to);
+                logger.log_api_endpoint("/api/v2/logs/events", "POST");
+                logger.log_datadog_url("logs", &query, &time_range.from, &time_range.to, &site);
 
-            let client = client::LogsClient::new(config);
-            commands::logs::run(client, query, from, to, indexes, limit, logger).await
-        }
-        Commands::Spans {
-            query,
-            from,
-            to,
-            limit,
-        } => {
-            logger.log_request("spans", &query, &from, &to);
-            logger.log_api_endpoint("/api/v2/spans/events/search", "POST");
-            logger.log_datadog_url("spans", &query, &from, &to, &site);
+                let client = client::LogsClient::new(config);
+                commands::logs::search::run(client, query, time_range, pagination, indexes, logger)
+                    .await
+            }
+        },
+        Domain::Spans { action } => match action {
+            SpansAction::Search {
+                query,
+                time_range,
+                pagination,
+            } => {
+                logger.log_request("spans", &query, &time_range.from, &time_range.to);
+                logger.log_api_endpoint("/api/v2/spans/events/search", "POST");
+                logger.log_datadog_url("spans", &query, &time_range.from, &time_range.to, &site);
 
-            let client = client::SpansClient::new(config);
-            commands::spans::run(client, query, from, to, limit, logger).await
-        }
-        Commands::Metrics {
-            query,
-            from,
-            to,
-            limit,
-        } => {
-            logger.log_request("metrics", &query, &from, &to);
-            logger.log_api_endpoint("/api/v1/query", "GET");
+                let client = client::SpansClient::new(config);
+                commands::spans::search::run(client, query, time_range, pagination, logger).await
+            }
+        },
+        Domain::Metrics { action } => match action {
+            MetricsAction::Query {
+                query,
+                time_range,
+                limit,
+            } => {
+                logger.log_request("metrics", &query, &time_range.from, &time_range.to);
+                logger.log_api_endpoint("/api/v1/query", "GET");
 
-            let client = client::MetricsClient::new(config);
-            commands::metrics::run(client, query, from, to, limit, logger).await
-        }
-        Commands::ListMetrics { from, to } => {
-            let to_display = to.as_deref().unwrap_or("now");
-            logger.log(&format!(
-                "Listing active metrics from {} to {}",
-                from, to_display
-            ));
-            logger.log_api_endpoint("/api/v1/metrics", "GET");
+                let client = client::MetricsClient::new(config);
+                commands::metrics::query::run(client, query, time_range, limit, logger).await
+            }
+            MetricsAction::List { time_range } => {
+                logger.log(&format!(
+                    "Listing active metrics from {} to {}",
+                    time_range.from, time_range.to
+                ));
+                logger.log_api_endpoint("/api/v1/metrics", "GET");
 
-            let client = client::MetricsClient::new(config);
-            commands::list_metrics::run(client, from, to, logger).await
-        }
+                let client = client::MetricsClient::new(config);
+                commands::metrics::list::run(client, time_range, logger).await
+            }
+        },
     }
 }

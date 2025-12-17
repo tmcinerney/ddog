@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-commit hook for dd-search
+# Pre-commit hook for ddog
 # This hook runs cargo fmt, clippy, and tests before committing
 
 set -e

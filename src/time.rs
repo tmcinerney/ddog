@@ -161,7 +161,7 @@ pub fn is_valid_time_range(from: &str, to: &str) -> bool {
 /// # Examples
 ///
 /// ```
-/// use dd_search::time::parse_to_unix_seconds;
+/// use ddog::time::parse_to_unix_seconds;
 ///
 /// // Relative time
 /// let timestamp = parse_to_unix_seconds("now").unwrap();

@@ -1,4 +1,4 @@
-//! # dd-search library
+//! # ddog library
 //!
 //! Library crate exposing the core functionality for integration tests.
 

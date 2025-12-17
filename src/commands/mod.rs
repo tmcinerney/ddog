@@ -1,8 +1,5 @@
-//! Command handlers for CLI subcommands.
-//!
-//! Each module implements a subcommand that queries Datadog and streams results.
+//! Command implementations organized by domain.
 
-pub mod list_metrics;
 pub mod logs;
 pub mod metrics;
 pub mod spans;

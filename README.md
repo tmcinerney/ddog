@@ -1,4 +1,4 @@
-# dd-search
+# ddog
 
 A command-line tool for querying Datadog logs, APM spans, and metrics. Outputs NDJSON for easy piping to `jq` or other tools.
 
@@ -6,7 +6,7 @@ A command-line tool for querying Datadog logs, APM spans, and metrics. Outputs N
 
 ```bash
 cargo build --release
-cp target/release/dd-search /usr/local/bin/
+cp target/release/ddog /usr/local/bin/
 ```
 
 ## Configuration
@@ -30,10 +30,10 @@ Your application key must have the following scopes/permissions:
 
 | Command | Required Scope | Description |
 |---------|---------------|-------------|
-| `logs` | `logs_read_data` | Read log data |
-| `spans` | `apm_read` | Read APM span data |
-| `metrics` | `timeseries_query` | Query metrics timeseries data |
-| `list-metrics` | `metrics_read` | List available metrics |
+| `logs search` | `logs_read_data` | Read log data |
+| `spans search` | `apm_read` | Read APM span data |
+| `metrics query` | `timeseries_query` | Query metrics timeseries data |
+| `metrics list` | `metrics_read` | List available metrics |
 
 **Note:** If you get a 403 Forbidden error, check that your application key has the required permissions in your Datadog account settings.
 
@@ -42,7 +42,7 @@ Your application key must have the following scopes/permissions:
 ### Logs
 
 ```bash
-dd-search logs <QUERY> [OPTIONS]
+ddog logs search <QUERY> [OPTIONS]
 ```
 
 **Options:**
@@ -61,22 +61,22 @@ dd-search logs <QUERY> [OPTIONS]
 
 ```bash
 # Search for errors in the last hour
-dd-search logs "service:api AND status:error"
+ddog logs search "service:api AND status:error"
 
 # Search last 15 minutes with custom limit
-dd-search logs "service:web @http.status_code:500" --from now-15m --limit 50
+ddog logs search "service:web @http.status_code:500" --from now-15m --limit 50
 
 # Search specific indexes
-dd-search logs "env:production" --indexes main,web
+ddog logs search "env:production" --indexes main,web
 
 # Pipe to jq for filtering
-dd-search logs "service:api" | jq '.attributes.message'
+ddog logs search "service:api" | jq '.attributes.message'
 ```
 
 ### Spans
 
 ```bash
-dd-search spans <QUERY> [OPTIONS]
+ddog spans search <QUERY> [OPTIONS]
 ```
 
 **Options:**
@@ -94,22 +94,22 @@ dd-search spans <QUERY> [OPTIONS]
 
 ```bash
 # Search spans by service
-dd-search spans "service:web env:prod"
+ddog spans search "service:web env:prod"
 
 # Find slow spans
-dd-search spans "service:api @duration:>1s" --limit 50
+ddog spans search "service:api @duration:>1s" --limit 50
 
 # Search with absolute time range (ISO8601)
-dd-search spans "service:db" --from "2024-01-15T10:00:00Z" --to "2024-01-15T11:00:00Z"
+ddog spans search "service:db" --from "2024-01-15T10:00:00Z" --to "2024-01-15T11:00:00Z"
 
 # Search with Unix timestamp (milliseconds)
-dd-search spans "service:api" --from "1705315200000" --to "1705318800000"
+ddog spans search "service:api" --from "1705315200000" --to "1705318800000"
 ```
 
 ### Metrics
 
 ```bash
-dd-search metrics <QUERY> [OPTIONS]
+ddog metrics query <QUERY> [OPTIONS]
 ```
 
 **Options:**
@@ -125,28 +125,28 @@ dd-search metrics <QUERY> [OPTIONS]
 
 ```bash
 # Query average CPU usage over last hour
-dd-search metrics "avg:system.cpu.user{*}" --from now-1h --to now
+ddog metrics query "avg:system.cpu.user{*}" --from now-1h --to now
 
 # Query with host filter
-dd-search metrics "max:system.mem.used{host:prod-*}" --from now-15m --to now
+ddog metrics query "max:system.mem.used{host:prod-*}" --from now-15m --to now
 
 # Query multiple metrics
-dd-search metrics "avg:system.cpu.user{*},avg:system.cpu.system{*}" --from now-6h --to now
+ddog metrics query "avg:system.cpu.user{*},avg:system.cpu.system{*}" --from now-6h --to now
 
 # Pipe to jq for processing
-dd-search metrics "avg:redis.net.connections{*}" --from now-1d --to now | jq '.value'
+ddog metrics query "avg:redis.net.connections{*}" --from now-1d --to now | jq '.value'
 
 # Filter by specific timestamp
-dd-search metrics "avg:system.load.1{*}" | jq 'select(.timestamp > 1705315200)'
+ddog metrics query "avg:system.load.1{*}" | jq 'select(.timestamp > 1705315200)'
 
 # Get average of all values
-dd-search metrics "avg:system.cpu.idle{*}" --from now-1h | jq -s 'add / length | .value'
+ddog metrics query "avg:system.cpu.idle{*}" --from now-1h | jq -s 'add / length | .value'
 ```
 
 ### List Metrics
 
 ```bash
-dd-search list-metrics [OPTIONS]
+ddog metrics list [OPTIONS]
 ```
 
 **Options:**
@@ -158,16 +158,16 @@ dd-search list-metrics [OPTIONS]
 
 ```bash
 # List all metrics active in the last hour
-dd-search list-metrics --from now-1h
+ddog metrics list --from now-1h
 
 # Find specific metrics with grep
-dd-search list-metrics --from now-1h | grep "system.cpu"
+ddog metrics list --from now-1h | grep "system.cpu"
 
 # Count total active metrics
-dd-search list-metrics --from now-1h | wc -l
+ddog metrics list --from now-1h | wc -l
 
 # List and filter with jq
-dd-search list-metrics --from now-1d | jq -r '.metric' | sort | uniq
+ddog metrics list --from now-1d | jq -r '.metric' | sort | uniq
 ```
 
 ## Query Syntax
@@ -284,16 +284,19 @@ cargo test --test integration_tests -- --ignored
 ### Project Structure
 
 - `src/` - Main source code
-  - `cli.rs` - Command-line interface definitions
+  - `cli/` - Command-line interface definitions
+    - `args.rs` - Main CLI structure and domain enum
+    - `shared.rs` - Shared argument structures (TimeRange, Pagination)
+    - `logs.rs`, `spans.rs`, `metrics.rs` - Domain-specific action enums
   - `client/` - Datadog API client wrappers
     - `logs.rs` - Logs API client
     - `spans.rs` - Spans API client
     - `metrics.rs` - Metrics API client
-  - `commands/` - Command implementations
-    - `logs.rs` - Logs search command
-    - `spans.rs` - Spans search command
-    - `metrics.rs` - Metrics query command
-    - `list_metrics.rs` - List metrics command
+  - `commands/` - Command implementations organized by domain
+    - `logs/search.rs` - Logs search command
+    - `spans/search.rs` - Spans search command
+    - `metrics/query.rs` - Metrics query command
+    - `metrics/list.rs` - List metrics command
   - `config.rs` - Configuration loading
   - `error.rs` - Error types and exit codes
   - `output.rs` - NDJSON output writer

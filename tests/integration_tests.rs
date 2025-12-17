@@ -1,4 +1,4 @@
-//! Integration tests for dd-search.
+//! Integration tests for ddog.
 //!
 //! These tests require valid Datadog credentials to be set in environment variables:
 //! - DD_API_KEY
@@ -9,9 +9,9 @@
 //!
 //! Note: These tests make actual API calls to Datadog and may consume API quota.
 
-use dd_search::client::{LogsClient, MetricsClient, SpansClient};
-use dd_search::config;
-use dd_search::time;
+use ddog::client::{LogsClient, MetricsClient, SpansClient};
+use ddog::config;
+use ddog::time;
 use futures_util::StreamExt;
 
 fn has_credentials() -> bool {

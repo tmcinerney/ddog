@@ -37,13 +37,13 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            name: dd-search-linux-x86_64
+            name: ddog-linux-x86_64
           - target: x86_64-apple-darwin
             os: macos-latest
-            name: dd-search-darwin-x86_64
+            name: ddog-darwin-x86_64
           - target: aarch64-apple-darwin
             os: macos-latest
-            name: dd-search-darwin-aarch64
+            name: ddog-darwin-aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
       - name: Package
         run: |
           cd target/${{ matrix.target }}/release
-          tar -czvf ../../../${{ matrix.name }}.tar.gz dd-search
+          tar -czvf ../../../${{ matrix.name }}.tar.gz ddog
           cd ../../..
 
       - name: Upload Release Asset

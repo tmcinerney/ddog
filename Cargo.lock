@@ -324,7 +324,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dd-search"
+name = "ddog"
 version = "0.1.0"
 dependencies = [
  "cargo-husky",

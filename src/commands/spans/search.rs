@@ -1,13 +1,14 @@
-//! Spans subcommand implementation.
+//! Spans search command implementation.
 //!
-//! Handles the `dd-search spans` command, streaming APM span results to stdout.
+//! Handles the `ddog spans search` command, streaming APM span results to stdout.
 
 use futures_util::StreamExt;
 
+use crate::cli::{Pagination, TimeRange};
 use crate::logging::VerboseLogger;
 use crate::output::NdjsonWriter;
-use dd_search::client::SpansClient;
-use dd_search::error::AppError;
+use ddog::client::SpansClient;
+use ddog::error::AppError;
 
 /// Executes the spans search command.
 ///
@@ -16,13 +17,12 @@ use dd_search::error::AppError;
 pub async fn run(
     client: SpansClient,
     query: String,
-    from: String,
-    to: String,
-    limit: u64,
+    time_range: TimeRange,
+    pagination: Pagination,
     logger: VerboseLogger,
 ) -> Result<(), AppError> {
     let mut writer = NdjsonWriter::new();
-    let mut stream = std::pin::pin!(client.search(&query, &from, &to));
+    let mut stream = std::pin::pin!(client.search(&query, &time_range.from, &time_range.to));
     let mut count: u64 = 0;
 
     while let Some(result) = stream.next().await {
@@ -49,8 +49,8 @@ pub async fn run(
         writer.write(&span)?;
         count += 1;
 
-        if limit > 0 && count >= limit {
-            logger.log(&format!("Reached limit of {} results", limit));
+        if pagination.limit > 0 && count >= pagination.limit {
+            logger.log(&format!("Reached limit of {} results", pagination.limit));
             break;
         }
     }
@@ -61,7 +61,7 @@ pub async fn run(
 
 #[cfg(test)]
 mod tests {
-    use dd_search::error::AppError;
+    use ddog::error::AppError;
 
     fn parse_error_message(msg: &str) -> AppError {
         if msg.contains("401") || msg.contains("403") || msg.contains("Forbidden") {
