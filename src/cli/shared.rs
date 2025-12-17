@@ -100,6 +100,34 @@ Not supported:
     pub to: String,
 }
 
+/// Single time argument for commands that only need a start time (e.g., metrics list).
+#[derive(Args, Debug, Clone)]
+pub struct TimeFrom {
+    /// Start time - supports relative (now-1h) or Unix ms (1705315200000). ISO8601 NOT supported for metrics.
+    #[arg(
+        short,
+        long,
+        default_value = "now-1h",
+        long_help = "Start time for the query. Metrics active after this time will be listed.
+
+⚠️  Note: Metrics commands do NOT support ISO8601 format.
+
+Supported formats:
+  • Relative: now, now-15m, now-1h, now-2d, now-1w, now-3mo, now-1y
+    Units: s (seconds), m (minutes), h (hours), d (days), w (weeks), mo (months), y (years)
+  • Unix timestamp: 1705315200000 (milliseconds since epoch)
+
+Examples:
+  --from now-30m     # 30 minutes ago
+  --from now-1d      # 1 day ago
+  --from 1705315200000
+
+Not supported:
+  --from 2024-01-15T10:00:00Z  ❌ ISO8601 format not available for metrics"
+    )]
+    pub from: String,
+}
+
 /// Pagination arguments for limiting query results.
 #[derive(Args, Debug, Clone)]
 pub struct Pagination {

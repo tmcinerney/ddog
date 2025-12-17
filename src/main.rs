@@ -95,15 +95,12 @@ async fn run() -> Result<(), AppError> {
                 let client = client::MetricsClient::new(config);
                 commands::metrics::query::run(client, query, time_range, limit, logger).await
             }
-            MetricsAction::List { time_range } => {
-                logger.log(&format!(
-                    "Listing active metrics from {} to {}",
-                    time_range.from, time_range.to
-                ));
+            MetricsAction::List { time_from } => {
+                logger.log(&format!("Listing active metrics from {}", time_from.from));
                 logger.log_api_endpoint("/api/v1/metrics", "GET");
 
                 let client = client::MetricsClient::new(config);
-                commands::metrics::list::run(client, time_range, logger).await
+                commands::metrics::list::run(client, time_from, logger).await
             }
         },
     }

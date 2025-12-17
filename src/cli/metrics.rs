@@ -2,7 +2,7 @@
 
 use clap::Subcommand;
 
-use super::shared::TimeRangeRelativeOnly;
+use super::shared::{TimeFrom, TimeRangeRelativeOnly};
 
 /// Available actions for the metrics domain.
 #[derive(Subcommand, Debug)]
@@ -115,9 +115,13 @@ Examples:
   ddog metrics list | wc -l
 
   # Extract metric names with jq
-  ddog metrics list | jq -r '.metric' | sort | uniq")]
+  ddog metrics list | jq -r '.metric' | sort | uniq
+
+Note: The Datadog API only accepts a start time (--from). The --to option
+is not available for this command as the API returns all metrics active after
+the specified start time.")]
     List {
         #[command(flatten)]
-        time_range: TimeRangeRelativeOnly,
+        time_from: TimeFrom,
     },
 }
