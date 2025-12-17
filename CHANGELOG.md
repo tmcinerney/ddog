@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/tmcinerney/ddog/compare/v1.0.0...v1.1.0) (2025-12-17)
+
+
+### Features
+
+* **cli:** add comprehensive help system and fix ISO8601 confusion ([b556c56](https://github.com/tmcinerney/ddog/commit/b556c568cdefe9b4e5f60228866e0803ec3c3b7e))
+* **cli:** add comprehensive help system and fix ISO8601 confusion ([33703e2](https://github.com/tmcinerney/ddog/commit/33703e2ea17afa219004fe10939645a1b1759776))
+
+
+### Bug Fixes
+
+* **metrics:** remove unused --to parameter from list command ([be22913](https://github.com/tmcinerney/ddog/commit/be2291392f73500d95286fac2dc545c44b19c73b))
+
 ## [1.0.0](https://github.com/tmcinerney/ddog/compare/v0.1.0...v1.0.0) (2025-12-17)
 
 
